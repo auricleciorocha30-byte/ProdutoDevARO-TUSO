@@ -11,7 +11,12 @@ const TURSO_AUTH_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpY
 // Native fetch implementation to avoid library side effects
 async function executeSql(sql: string, args: any[] = []) {
   // Ensure URL uses https:// instead of libsql://
-  let httpUrl = TURSO_URL.trim().replace(/^libsql:\/\//, 'https://');
+  let httpUrl = TURSO_URL.trim();
+  if (httpUrl.startsWith('libsql://')) {
+      httpUrl = httpUrl.replace(/^libsql:\/\//, 'https://');
+  } else if (!httpUrl.startsWith('http://') && !httpUrl.startsWith('https://')) {
+      httpUrl = 'https://' + httpUrl;
+  }
   httpUrl = httpUrl.replace(/\/$/, '');
 
   // Sanitize args for SQLite (convert booleans to ints, etc if needed)
@@ -301,9 +306,14 @@ class TursoBridge {
       }
 
       // Ensure URL uses https:// instead of libsql:// for fetch compatibility
-      let httpUrl = url.trim().replace(/^libsql:\/\//, 'https://');
+      let httpUrl = url.trim();
+      if (httpUrl.startsWith('libsql://')) {
+          httpUrl = httpUrl.replace(/^libsql:\/\//, 'https://');
+      } else if (!httpUrl.startsWith('http://') && !httpUrl.startsWith('https://')) {
+          httpUrl = 'https://' + httpUrl;
+      }
       
-      // Remove trailing slash if present to avoid double slashes if we were appending paths (though we aren't currently)
+      // Remove trailing slash if present
       httpUrl = httpUrl.replace(/\/$/, '');
 
       const cleanToken = token ? token.trim() : '';
@@ -720,7 +730,12 @@ class TursoBridge {
       }
 
       // Ensure URL uses https:// instead of libsql://
-      let httpUrl = targetUrl.trim().replace(/^libsql:\/\//, 'https://');
+      let httpUrl = targetUrl.trim();
+      if (httpUrl.startsWith('libsql://')) {
+          httpUrl = httpUrl.replace(/^libsql:\/\//, 'https://');
+      } else if (!httpUrl.startsWith('http://') && !httpUrl.startsWith('https://')) {
+          httpUrl = 'https://' + httpUrl;
+      }
       httpUrl = httpUrl.replace(/\/$/, '');
       const cleanToken = targetToken ? targetToken.trim() : '';
 

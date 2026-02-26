@@ -79,8 +79,18 @@ export default function LoginPage({ onLoginSuccess }: Props) {
     try {
       let currentStoreId = null;
       if (storeSlug) {
+        // Ensure we are on Main DB to fetch profile
+        (supabase as any).disconnectStore();
+        
         const { data: storeData } = await supabase.from('store_profiles').eq('slug', storeSlug).maybeSingle();
-        currentStoreId = storeData?.id;
+        
+        if (storeData) {
+            currentStoreId = storeData.id;
+            // Connect to specific DB if configured
+            if (storeData.dbUrl && storeData.dbAuthToken) {
+                (supabase as any).connectToStore(storeData.dbUrl, storeData.dbAuthToken);
+            }
+        }
       }
 
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({

@@ -213,6 +213,14 @@ export default function SuperAdminPanel() {
     });
     setIsManagingContent(true);
     setActiveSubTab('perfil');
+    
+    // Connect to store DB if it has one
+    if ((store as any).dbUrl && (store as any).dbAuthToken) {
+        (supabase as any).connectToStore((store as any).dbUrl, (store as any).dbAuthToken);
+    } else {
+        (supabase as any).disconnectStore();
+    }
+    
     fetchStoreData(store.id);
   };
 
@@ -382,10 +390,35 @@ export default function SuperAdminPanel() {
       })
     };
 
-    const { error } = await supabase.from('store_profiles').insert([newStore]);
+    const { data: storeData, error } = await supabase.from('store_profiles').insert([newStore]);
     
-    if (error) alert("Erro ao criar loja");
-    else {
+    if (error) {
+        alert("Erro ao criar loja");
+    } else {
+      const createdStore = storeData?.[0];
+      
+      if (createdStore) {
+          // Connect to the new store's DB if it has one
+          if (createdStore.dbUrl && createdStore.dbAuthToken) {
+              (supabase as any).connectToStore(createdStore.dbUrl, createdStore.dbAuthToken);
+              // Wait a moment for schema initialization
+              await new Promise(resolve => setTimeout(resolve, 1500));
+          }
+
+          // Create default admin user
+          const adminPayload = {
+              store_id: createdStore.id,
+              name: 'admin',
+              password: 'admin',
+              role: 'GERENTE'
+          };
+          
+          await supabase.from('waitstaff').insert([adminPayload]);
+          
+          // Disconnect to return to Main DB
+          (supabase as any).disconnectStore();
+      }
+
       setShowModal(false);
       setFormData({ name: '', slug: '', address: '', whatsapp: '', logoUrl: '', dbUrl: '', dbAuthToken: '' });
       fetchStores();
@@ -518,7 +551,10 @@ export default function SuperAdminPanel() {
     return (
       <div className="min-h-screen bg-[#F0F2F5] p-6 text-zinc-900">
         <div className="max-w-6xl mx-auto space-y-8">
-           <button onClick={() => setIsManagingContent(false)} className="flex items-center gap-2 text-slate-500 font-bold hover:text-primary transition-all">
+           <button onClick={() => {
+               setIsManagingContent(false);
+               (supabase as any).disconnectStore();
+           }} className="flex items-center gap-2 text-slate-500 font-bold hover:text-primary transition-all">
              <ChevronLeft /> Voltar para Lojas
            </button>
 
