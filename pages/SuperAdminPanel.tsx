@@ -890,7 +890,17 @@ export default function SuperAdminPanel() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Slug Identificador</label>
-                    <input type="text" value={formData.slug} onChange={e => setFormData({...formData, slug: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-transparent focus:border-slate-200" placeholder="ex: unidade-centro" />
+                    <input 
+                        type="text" 
+                        value={formData.slug} 
+                        onChange={e => {
+                            const val = e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                            setFormData({...formData, slug: val});
+                        }} 
+                        className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-transparent focus:border-slate-200" 
+                        placeholder="ex: unidade-centro" 
+                    />
+                    <p className="text-[10px] text-slate-400 ml-4">Use apenas letras minúsculas, números e hífens.</p>
                   </div>
                 </div>
 

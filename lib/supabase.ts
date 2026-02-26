@@ -217,6 +217,24 @@ class TursoBridge {
       TursoBridge.storeDbUrl = url;
       TursoBridge.storeDbToken = token;
       console.log("Conectado ao banco da loja:", url);
+
+      // Trigger schema check for this new connection
+      if (!TursoBridge.initializedStores.has(url)) {
+          if (!TursoBridge.initializationPromises.has(url)) {
+              const instance = new TursoBridge();
+              TursoBridge.initializationPromises.set(url, instance.ensureStoreSchema(url, token));
+          }
+          
+          // We don't await here to avoid blocking the UI, but we log success/failure
+          TursoBridge.initializationPromises.get(url)?.then(() => {
+              TursoBridge.initializedStores.add(url);
+              TursoBridge.initializationPromises.delete(url);
+              console.log("Schema da loja inicializado com sucesso");
+          }).catch(err => {
+              console.error("Falha ao inicializar schema da loja:", err);
+              TursoBridge.initializationPromises.delete(url);
+          });
+      }
   }
 
   static disconnectStore() {
@@ -226,13 +244,18 @@ class TursoBridge {
   }
 
   private async ensureStoreSchema(url: string, token: string) {
+      console.log("Iniciando verificação de schema para:", url);
       try {
           for (const statement of SCHEMA_STATEMENTS) {
+              // Skip store_profiles for store DBs as it lives in Main DB
+              if (statement.includes('CREATE TABLE IF NOT EXISTS store_profiles')) continue;
+              
               await this.executeSqlCustom(url, token, statement);
           }
           console.log("Schema verificado na loja:", url);
       } catch (err) {
           console.error("Erro ao criar schema na loja:", err);
+          throw err;
       }
   }
 

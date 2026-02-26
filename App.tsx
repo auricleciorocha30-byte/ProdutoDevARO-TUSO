@@ -141,8 +141,11 @@ function StoreContext() {
   const fetchStoreContext = async (slug: string) => {
     setLoadingStore(true);
     try {
+      // Normalize slug to lowercase to avoid case-sensitivity issues
+      const normalizedSlug = slug.toLowerCase();
+
       // Try to get from cache first if offline or just to show something fast
-      const cachedStore = localStorage.getItem(`store_profile_${slug}`);
+      const cachedStore = localStorage.getItem(`store_profile_${normalizedSlug}`);
       if (cachedStore) {
           const parsed = JSON.parse(cachedStore);
           setCurrentStore(parsed);
@@ -170,16 +173,22 @@ function StoreContext() {
       // Ensure we are on Main DB to fetch profile
       (supabase as any).disconnectStore();
 
+      console.log(`Fetching store profile for slug: ${normalizedSlug}`);
+
       const { data, error } = await supabase
         .from('store_profiles')
         .select('*')
-        .eq('slug', slug)
+        .eq('slug', normalizedSlug)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+          console.error("Error fetching store:", error);
+          throw error;
+      }
       
       if (!data) {
-        setStoreError({message: 'Loja não encontrada.', isSuspended: false});
+        console.warn(`Store not found for slug: ${normalizedSlug}`);
+        setStoreError({message: `Loja não encontrada (slug: ${normalizedSlug}). Verifique o endereço.`, isSuspended: false});
       } else if (!data.isActive && data.isactive !== true) {
         setStoreError({message: 'Esta conta está temporariamente suspensa.', isSuspended: true});
       } else {
@@ -198,14 +207,16 @@ function StoreContext() {
         
         // Connect to specific DB if configured
         if (fullStoreData.dbUrl && fullStoreData.dbAuthToken) {
+            console.log("Connecting to dedicated DB for store:", fullStoreData.name);
             (supabase as any).connectToStore(fullStoreData.dbUrl, fullStoreData.dbAuthToken);
         }
 
         // Cache store profile
-        localStorage.setItem(`store_profile_${slug}`, JSON.stringify(fullStoreData));
+        localStorage.setItem(`store_profile_${normalizedSlug}`, JSON.stringify(fullStoreData));
       }
-    } catch (err) {
-      setStoreError({message: 'Erro ao carregar unidade.', isSuspended: false});
+    } catch (err: any) {
+      console.error("Critical error loading store:", err);
+      setStoreError({message: 'Erro ao carregar unidade. Tente recarregar a página.', isSuspended: false});
     } finally {
       setLoadingStore(false);
     }
