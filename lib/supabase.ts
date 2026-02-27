@@ -9,17 +9,26 @@ const TURSO_URL = 'https://produtodevaro-auricleciorocha30-byte.aws-us-east-1.tu
 const TURSO_AUTH_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzIxMzYwOTMsImlkIjoiMDE5YzliNzctZGMwMS03MmIwLWFmYWItYWRlOGY0MjM5YTBjIiwicmlkIjoiYTQyYjFmY2EtYjc0YS00MGMwLTk3M2QtODlmNmFlMTBkYzFiIn0.A7LAbG4yZ70-XPczvHXgaVUm2t_rJuTlsMpefd86FVprMb50rPZU5aICZdVvQvXpdnwOiav_nNMRCOOmi2cQDQ';
 
 // Native fetch implementation to avoid library side effects
-async function executeSql(sql: string, args: any[] = []) {
-  // Ensure URL uses https:// instead of libsql://
-  let httpUrl = TURSO_URL.trim();
+async function executeSqlCustom(url: string, token: string, sql: string, args: any[] = []) {
+  if (!url) {
+      console.error("Turso Error: URL is missing");
+      throw new Error("Database URL is missing");
+  }
+
+  // Ensure URL uses https:// instead of libsql:// for fetch compatibility
+  let httpUrl = url.trim();
   if (httpUrl.startsWith('libsql://')) {
       httpUrl = httpUrl.replace(/^libsql:\/\//, 'https://');
   } else if (!httpUrl.startsWith('http://') && !httpUrl.startsWith('https://')) {
       httpUrl = 'https://' + httpUrl;
   }
+  
+  // Remove trailing slash if present
   httpUrl = httpUrl.replace(/\/$/, '');
 
-  // Sanitize args for SQLite (convert booleans to ints, etc if needed)
+  const cleanToken = token ? token.trim() : '';
+
+  // Sanitize args for SQLite
   const sanitizedArgs = args.map(arg => {
     if (typeof arg === 'boolean') return arg ? 1 : 0;
     return arg;
@@ -29,7 +38,7 @@ async function executeSql(sql: string, args: any[] = []) {
     const response = await fetch(httpUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${TURSO_AUTH_TOKEN}`,
+        'Authorization': `Bearer ${cleanToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -44,36 +53,28 @@ async function executeSql(sql: string, args: any[] = []) {
 
     if (!response.ok) {
       const text = await response.text();
-      console.error(`Turso Main DB HTTP Error: ${response.status} ${text}`);
+      console.error(`Turso HTTP Error: ${response.status} ${response.statusText} - ${text}`);
       throw new Error(`Turso HTTP Error ${response.status}: ${text}`);
     }
 
     const json = await response.json();
     
-    // Check for array response (batch results)
     if (!Array.isArray(json)) {
-      console.error("Turso Main DB Error: Invalid response format", json);
-      throw new Error("Invalid response format from Turso");
+        console.error("Turso Error: Invalid response format", json);
+        throw new Error("Invalid response format from Turso");
     }
 
     const result = json[0];
-    
     if (result.error) {
-      const errorMessage = typeof result.error === 'string' ? result.error : (result.error.message || JSON.stringify(result.error));
-      console.error("Turso Main DB Query Error:", errorMessage, result);
-      throw new Error(errorMessage);
+        const errorMessage = typeof result.error === 'string' ? result.error : (result.error.message || JSON.stringify(result.error));
+        console.error("Turso Query Error:", errorMessage, result);
+        throw new Error(errorMessage);
     }
 
-    // Handle empty results (e.g. INSERT/UPDATE without RETURNING)
-    if (!result.results) {
-        return { rows: [] };
-    }
+    if (!result.results) return { rows: [] };
 
-    // Map rows (arrays) to objects using columns
     const { columns, rows } = result.results;
-    if (!rows || !columns) {
-        return { rows: [] };
-    }
+    if (!rows || !columns) return { rows: [] };
 
     const mappedRows = rows.map((row: any[]) => {
       const obj: any = {};
@@ -84,16 +85,91 @@ async function executeSql(sql: string, args: any[] = []) {
     });
 
     return { rows: mappedRows };
-
   } catch (err: any) {
-    console.error("Turso Main DB Execute Error:", {
-        message: err.message,
-        stack: err.stack,
-        url: httpUrl
-    });
+    console.error("Turso Execute Error:", { message: err.message, url: httpUrl });
     throw err;
   }
 }
+
+async function executeSql(sql: string, args: any[] = []) {
+    return executeSqlCustom(TURSO_URL, TURSO_AUTH_TOKEN, sql, args);
+}
+
+// --- OFFLINE SYNC & CACHE SYSTEM ---
+const CACHE_PREFIX = 'turso_cache_';
+const SYNC_QUEUE_KEY = 'turso_sync_queue';
+const CACHE_TTL = 10000; // 10 seconds cache for reads
+
+function getCacheKey(tableName: string, queryStr: string, params: any[]) {
+    return `${CACHE_PREFIX}${tableName}_${queryStr}_${JSON.stringify(params)}`;
+}
+
+function getFromCache(key: string) {
+    try {
+        const cached = localStorage.getItem(key);
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (!navigator.onLine || (Date.now() - parsed.timestamp < CACHE_TTL)) {
+                return parsed.data;
+            }
+        }
+    } catch (e) {}
+    return null;
+}
+
+function setToCache(key: string, data: any) {
+    try {
+        localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+    } catch (e) {}
+}
+
+function invalidateCache(tableName: string) {
+    try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(`${CACHE_PREFIX}${tableName}_`)) {
+                keysToRemove.push(key);
+            }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch (e) {}
+}
+
+function addToSyncQueue(url: string, token: string, sql: string, params: any[]) {
+    try {
+        const queue = JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]');
+        queue.push({ id: crypto.randomUUID(), url, token, sql, params, timestamp: Date.now() });
+        localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+    } catch (e) {}
+}
+
+async function processSyncQueue() {
+    if (!navigator.onLine) return;
+    try {
+        const queue = JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]');
+        if (queue.length === 0) return;
+
+        const remainingQueue = [];
+        for (const op of queue) {
+            try {
+                await executeSqlCustom(op.url, op.token, op.sql, op.params);
+            } catch (err: any) {
+                // If it's a network error, keep in queue. Otherwise, discard to prevent infinite loops on bad SQL.
+                if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+                    remainingQueue.push(op);
+                } else {
+                    console.error("Discarding invalid sync operation:", op, err);
+                }
+            }
+        }
+        localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(remainingQueue));
+    } catch (e) {}
+}
+
+window.addEventListener('online', processSyncQueue);
+setInterval(processSyncQueue, 15000);
+// -----------------------------------
 
 const client = {
   execute: async (stmt: string | { sql: string, args: any[] }) => {
@@ -295,94 +371,19 @@ class TursoBridge {
           }
       }
 
-      // We need to use a custom executeSql that accepts URL/Token
-      return this.executeSqlCustom(targetUrl, targetToken, sql, args);
-  }
-
-  private async executeSqlCustom(url: string, token: string, sql: string, args: any[] = []) {
-      if (!url) {
-          console.error("Turso Error: URL is missing");
-          throw new Error("Database URL is missing");
-      }
-
-      // Ensure URL uses https:// instead of libsql:// for fetch compatibility
-      let httpUrl = url.trim();
-      if (httpUrl.startsWith('libsql://')) {
-          httpUrl = httpUrl.replace(/^libsql:\/\//, 'https://');
-      } else if (!httpUrl.startsWith('http://') && !httpUrl.startsWith('https://')) {
-          httpUrl = 'https://' + httpUrl;
-      }
-      
-      // Remove trailing slash if present
-      httpUrl = httpUrl.replace(/\/$/, '');
-
-      const cleanToken = token ? token.trim() : '';
-
-      // Sanitize args for SQLite
-      const sanitizedArgs = args.map(arg => {
-        if (typeof arg === 'boolean') return arg ? 1 : 0;
-        return arg;
-      });
-    
       try {
-        const response = await fetch(httpUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${cleanToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            statements: [
-              {
-                q: sql,
-                params: sanitizedArgs
-              }
-            ]
-          })
-        });
-    
-        if (!response.ok) {
-          const text = await response.text();
-          console.error(`Turso HTTP Error: ${response.status} ${response.statusText} - ${text}`);
-          throw new Error(`Turso HTTP Error ${response.status}: ${text}`);
-        }
-    
-        const json = await response.json();
-        
-        if (!Array.isArray(json)) {
-            console.error("Turso Error: Invalid response format", json);
-            throw new Error("Invalid response format from Turso");
-        }
-    
-        const result = json[0];
-        if (result.error) {
-            const errorMessage = typeof result.error === 'string' ? result.error : (result.error.message || JSON.stringify(result.error));
-            console.error("Turso Query Error:", errorMessage, result);
-            throw new Error(errorMessage);
-        }
-    
-        if (!result.results) return { rows: [] };
-    
-        const { columns, rows } = result.results;
-        if (!rows || !columns) return { rows: [] };
-    
-        const mappedRows = rows.map((row: any[]) => {
-          const obj: any = {};
-          columns.forEach((col: string, index: number) => {
-            obj[col] = row[index];
-          });
-          return obj;
-        });
-    
-        return { rows: mappedRows };
-    
+          return await executeSqlCustom(targetUrl, targetToken, sql, args);
       } catch (err: any) {
-        console.error("Turso Execute Error Details:", {
-            url: httpUrl,
-            message: err.message,
-            stack: err.stack
-        });
-        throw err;
+          // If network error and it's a write operation, queue it
+          if (!navigator.onLine || err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+              const isWrite = sql.trim().toUpperCase().match(/^(INSERT|UPDATE|DELETE)/);
+              if (isWrite) {
+                  console.warn("Offline: Queueing write operation", sql);
+                  addToSyncQueue(targetUrl, targetToken, sql, args);
+                  return { rows: [] }; // Fake success
+              }
+          }
+          throw err; // Let get() handle read cache fallback
       }
   }
 
@@ -442,7 +443,24 @@ class TursoBridge {
         queryStr += ` LIMIT ${this.limitCount}`;
       }
       
-      const result = await this.executeQuery(queryStr, this.params);
+      const cacheKey = getCacheKey(this.tableName, queryStr, this.params);
+      const cachedData = getFromCache(cacheKey);
+      if (cachedData) {
+          return { data: cachedData, error: null };
+      }
+
+      let result;
+      try {
+          result = await this.executeQuery(queryStr, this.params);
+      } catch (err: any) {
+          if (!navigator.onLine || err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+              const fallbackCache = localStorage.getItem(cacheKey);
+              if (fallbackCache) {
+                  return { data: JSON.parse(fallbackCache).data, error: null };
+              }
+          }
+          throw err;
+      }
       
       // Parse JSON columns and boolean integers
       const rows = result.rows.map(row => {
@@ -466,6 +484,7 @@ class TursoBridge {
         return processedRow;
       });
 
+      setToCache(cacheKey, rows);
       return { data: rows, error: null };
     } catch (err: any) {
       console.error("Turso Get Error:", err);
@@ -475,6 +494,7 @@ class TursoBridge {
 
   async insert(values: any[]) {
     if (this.tableName === 'store_profiles') await ensureSchema();
+    invalidateCache(this.tableName);
     try {
       const results = [];
       for (const val of values) {
@@ -529,6 +549,7 @@ class TursoBridge {
 
   async upsert(values: any[]) {
     if (this.tableName === 'store_profiles') await ensureSchema();
+    invalidateCache(this.tableName);
     try {
         const results = [];
         for (const val of values) {
@@ -560,6 +581,7 @@ class TursoBridge {
 
   async update(values: any) {
     if (this.tableName === 'store_profiles') await ensureSchema();
+    invalidateCache(this.tableName);
     try {
       const valCopy = { ...values };
       
@@ -611,6 +633,7 @@ class TursoBridge {
 
   async delete() {
     if (this.tableName === 'store_profiles') await ensureSchema();
+    invalidateCache(this.tableName);
     try {
       let queryStr = `DELETE FROM ${this.tableName}`;
       if (this.queries.length > 0) {
@@ -845,6 +868,7 @@ class TursoBridge {
                       await tempInstance.executeBatch(statements);
                   }
               }
+              invalidateCache(table);
           }
           return { success: true, error: null };
       } catch (err: any) {
