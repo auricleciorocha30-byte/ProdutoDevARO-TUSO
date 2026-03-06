@@ -35,7 +35,8 @@ import {
   DollarSign,
   Hash,
   UserRound,
-  ArrowLeft
+  ArrowLeft,
+  ChefHat
 } from 'lucide-react';
 import { Product, StoreSettings, Order, OrderItem, OrderType, PaymentMethod, Waitstaff } from '../types';
 
@@ -109,6 +110,7 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
   const [changeFor, setChangeFor] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [sendToKitchen, setSendToKitchen] = useState(true);
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -274,7 +276,7 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
       id: Date.now().toString(), 
       type: orderType, 
       items: cart, 
-      status: 'PREPARANDO', 
+      status: sendToKitchen ? 'PREPARANDO' : 'PRONTO', 
       total: cartTotal, 
       createdAt: Date.now(), 
       paymentMethod: payment,
@@ -541,6 +543,24 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
                 ) : checkoutStep === 'details' ? (
                   <div className="space-y-6">
                      <button onClick={() => setCheckoutStep('cart')} className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2"><ChevronLeft size={14}/> Voltar para Sacola</button>
+                     
+                     {isWaitstaff && (
+                       <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 flex items-center justify-between mb-4 animate-fade-in">
+                          <div className="flex items-center gap-3">
+                             <div className={`p-2 rounded-xl transition-colors ${sendToKitchen ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
+                                <ChefHat size={20} />
+                             </div>
+                             <div>
+                                <p className="font-bold text-sm text-primary">Enviar para Produção</p>
+                                <p className="text-[10px] text-gray-500 font-medium">O pedido aparecerá no painel de produção</p>
+                             </div>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" checked={sendToKitchen} onChange={e => setSendToKitchen(e.target.checked)} className="sr-only peer" />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                          </label>
+                       </div>
+                     )}
                      
                      <div className="space-y-4">
                         {orderType === 'MESA' || orderType === 'COMANDA' ? (

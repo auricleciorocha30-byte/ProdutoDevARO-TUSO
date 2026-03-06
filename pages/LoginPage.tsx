@@ -185,7 +185,7 @@ export default function LoginPage({ onLoginSuccess }: Props) {
                 />
                 <PortalButton 
                   icon={ChefHat} 
-                  title="Cozinha" 
+                  title="Produção" 
                   description="Painel de Produção" 
                   to="/cozinha" 
                   color="bg-blue-600" 

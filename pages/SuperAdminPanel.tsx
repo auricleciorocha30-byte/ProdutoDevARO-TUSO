@@ -36,7 +36,7 @@ import {
   Download,
   Upload
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, setMasterDbConfig } from '../lib/supabase';
 import { StoreProfile, Product, Waitstaff } from '../types';
 import { INITIAL_SETTINGS } from '../constants';
 
@@ -116,6 +116,11 @@ export default function SuperAdminPanel() {
   };
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showMasterConfigModal, setShowMasterConfigModal] = useState(false);
+  const [masterConfig, setMasterConfig] = useState({
+    url: localStorage.getItem('master_db_url') || '',
+    token: localStorage.getItem('master_db_token') || ''
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -500,6 +505,13 @@ export default function SuperAdminPanel() {
     localStorage.removeItem('master_logged_in');
   };
 
+  const handleSaveMasterConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    setMasterDbConfig(masterConfig.url, masterConfig.token);
+    alert('Configuração do Banco Master salva com sucesso! A página será recarregada.');
+    window.location.reload();
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#F0F2F5] flex items-center justify-center p-6 text-zinc-900">
@@ -817,12 +829,20 @@ export default function SuperAdminPanel() {
             <h1 className="text-4xl font-brand font-bold text-slate-800">Unidades do Ecossistema</h1>
             <p className="text-slate-500 font-medium">Controle administrativo centralizado para todas as lojas.</p>
           </div>
-          <button 
-            onClick={() => setShowModal(true)}
-            className="flex items-center justify-center gap-2 px-10 py-5 bg-[#001F3F] text-white font-bold rounded-[1.5rem] shadow-2xl hover:bg-black transition-all active:scale-95 group"
-          >
-            <Plus size={20} className="group-hover:rotate-90 transition-transform" /> Nova Loja Parceira
-          </button>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button 
+              onClick={() => setShowMasterConfigModal(true)}
+              className="flex items-center justify-center gap-2 px-6 py-5 bg-white text-slate-700 font-bold rounded-[1.5rem] shadow-sm border border-slate-200 hover:bg-slate-50 transition-all active:scale-95"
+            >
+              <Zap size={20} className="text-secondary" /> Configurar Banco Master
+            </button>
+            <button 
+              onClick={() => setShowModal(true)}
+              className="flex items-center justify-center gap-2 px-10 py-5 bg-[#001F3F] text-white font-bold rounded-[1.5rem] shadow-2xl hover:bg-black transition-all active:scale-95 group"
+            >
+              <Plus size={20} className="group-hover:rotate-90 transition-transform" /> Nova Loja Parceira
+            </button>
+          </div>
         </div>
 
         <div className="relative group">
@@ -908,6 +928,58 @@ export default function SuperAdminPanel() {
           </div>
         )}
       </div>
+
+      {showMasterConfigModal && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 text-zinc-900">
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl animate-scale-up overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-8 border-b bg-slate-50 flex items-center justify-between shrink-0">
+              <h2 className="text-2xl font-brand font-bold text-slate-800 flex items-center gap-2"><Zap className="text-secondary" /> Configuração do Banco Master</h2>
+              <button onClick={() => setShowMasterConfigModal(false)} className="p-2 text-slate-300 hover:text-slate-500"><X size={24}/></button>
+            </div>
+            
+            <div className="overflow-y-auto custom-scrollbar">
+              <form onSubmit={handleSaveMasterConfig} className="p-8 space-y-6">
+                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 mb-6">
+                  <p className="text-xs text-blue-800 font-medium">
+                    Esta configuração define o banco de dados principal (Turso) onde todas as lojas e configurações globais serão armazenadas. 
+                    Se deixado em branco, o sistema usará a configuração padrão do código.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Database URL (Turso)</label>
+                        <input 
+                          type="text" 
+                          value={masterConfig.url} 
+                          onChange={e => setMasterConfig({...masterConfig, url: e.target.value})} 
+                          className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono text-xs border border-transparent focus:border-slate-200" 
+                          placeholder="libsql://..." 
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Auth Token</label>
+                        <input 
+                          type="password" 
+                          value={masterConfig.token} 
+                          onChange={e => setMasterConfig({...masterConfig, token: e.target.value})} 
+                          className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono text-xs border border-transparent focus:border-slate-200" 
+                          placeholder="ey..." 
+                        />
+                    </div>
+                </div>
+
+                <div className="pt-8 flex gap-4">
+                  <button type="button" onClick={() => setShowMasterConfigModal(false)} className="flex-1 py-4 text-slate-400 font-bold hover:bg-slate-50 rounded-2xl transition-colors">Cancelar</button>
+                  <button type="submit" className="flex-[2] py-4 bg-[#001F3F] text-white rounded-2xl font-bold shadow-xl hover:brightness-110 transition-all">
+                    Salvar Configuração Master
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 text-zinc-900">

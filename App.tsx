@@ -531,7 +531,7 @@ function AdminLayout({ settings, onLogout }: { settings: StoreSettings, onLogout
           <div className="pt-6 pb-2 px-3 text-[10px] text-white/40 font-bold uppercase tracking-widest">Atalhos Externos</div>
           <a href={`#/atendimento${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-orange-400 font-bold"><UserRound size={20} /> Atendimento</a>
           <a href={`#/cardapio${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-secondary"><Utensils size={20} /> Cardápio</a>
-          <a href={`#/cozinha${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-gray-300"><ChefHat size={20} /> Cozinha</a>
+          <a href={`#/cozinha${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-gray-300"><ChefHat size={20} /> Produção</a>
           <a href={`#/tv${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-gray-300"><Tv size={20} /> Painel TV</a>
         </nav>
         <div className="p-4 border-t border-white/10"><button onClick={onLogout} className="w-full flex items-center gap-3 p-3 text-red-400 font-bold"><LogOut size={18} /> Sair</button></div>

@@ -43,7 +43,7 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
             category: editingProduct.category || categories[0] || 'Geral',
             imageUrl: editingProduct.imageUrl || 'https://picsum.photos/400/300',
             isActive: editingProduct.isActive !== false,
-            featuredDay: (editingProduct.featuredDay === -1 || editingProduct.featuredDay === undefined) ? undefined : Number(editingProduct.featuredDay),
+            featuredDay: (editingProduct.featuredDay === -1 || editingProduct.featuredDay === undefined || editingProduct.featuredDay === null) ? null : Number(editingProduct.featuredDay),
             isByWeight: !!editingProduct.isByWeight,
             barcode: editingProduct.barcode || undefined
         };
