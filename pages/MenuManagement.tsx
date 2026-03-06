@@ -77,9 +77,10 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
     try {
       const { error } = await supabase.from('categories').insert([{ name: trimmedName, store_id: storeId }]);
       if (error) {
-         if (error.code === '23505') { // Unique violation
+         const errorMsg = error.message || String(error);
+         if (error.code === '23505' || errorMsg.includes('UNIQUE constraint failed')) { // Unique violation
              // If it exists in DB but not locally, add it to local state so user can use it
-             if (!categories.includes(trimmedName)) {
+             if (!categories.some(c => c.toLowerCase() === trimmedName.toLowerCase())) {
                  setCategories([...categories, trimmedName]);
                  setNewCategoryName('');
                  alert("Categoria recuperada do banco de dados.");

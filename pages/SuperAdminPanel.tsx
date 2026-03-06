@@ -298,8 +298,14 @@ export default function SuperAdminPanel() {
       store_id: editingStore.id,
       name: newCatName.trim()
     }]);
-    if (error) alert("Erro ao adicionar categoria (já existe ou erro de conexão)");
-    else {
+    if (error) {
+        const errorMsg = error.message || String(error);
+        if (error.code === '23505' || errorMsg.includes('UNIQUE constraint failed')) {
+            alert("Esta categoria já existe.");
+        } else {
+            alert("Erro ao adicionar categoria (erro de conexão)");
+        }
+    } else {
       setNewCatName('');
       fetchStoreData(editingStore.id);
     }
