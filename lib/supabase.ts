@@ -422,9 +422,6 @@ class TursoBridge {
 
   async then(onfulfilled?: (value: any) => any, onrejected?: (reason: any) => any) {
     try {
-      // Only ensure schema on Main DB or if we are on Main DB
-      // If we are on Store DB, we assume schema exists or we should ensure it there too?
-      // For now, let's just ensure schema on Main DB to be safe for store_profiles
       if (this.tableName === 'store_profiles') {
           await ensureSchema();
       }
@@ -436,7 +433,11 @@ class TursoBridge {
   }
 
   async maybeSingle() {
-    if (this.tableName === 'store_profiles') await ensureSchema();
+    try {
+      if (this.tableName === 'store_profiles') await ensureSchema();
+    } catch (err: any) {
+      return { data: null, error: err };
+    }
     const { data } = await this.get();
     return { data: data && data.length > 0 ? data[0] : null, error: null };
   }
@@ -504,7 +505,12 @@ class TursoBridge {
   }
 
   async insert(values: any[]) {
-    if (this.tableName === 'store_profiles') await ensureSchema();
+    try {
+      if (this.tableName === 'store_profiles') await ensureSchema();
+    } catch (err: any) {
+      console.error("Schema initialization error:", err);
+      return { data: null, error: err };
+    }
     invalidateCache(this.tableName);
     try {
       const results = [];
@@ -559,7 +565,11 @@ class TursoBridge {
   }
 
   async upsert(values: any[]) {
-    if (this.tableName === 'store_profiles') await ensureSchema();
+    try {
+      if (this.tableName === 'store_profiles') await ensureSchema();
+    } catch (err: any) {
+      return { data: null, error: err };
+    }
     invalidateCache(this.tableName);
     try {
         const results = [];
@@ -591,7 +601,11 @@ class TursoBridge {
   }
 
   async update(values: any) {
-    if (this.tableName === 'store_profiles') await ensureSchema();
+    try {
+      if (this.tableName === 'store_profiles') await ensureSchema();
+    } catch (err: any) {
+      return { data: null, error: err };
+    }
     invalidateCache(this.tableName);
     try {
       const valCopy = { ...values };
@@ -643,7 +657,11 @@ class TursoBridge {
   }
 
   async delete() {
-    if (this.tableName === 'store_profiles') await ensureSchema();
+    try {
+      if (this.tableName === 'store_profiles') await ensureSchema();
+    } catch (err: any) {
+      return { data: null, error: err };
+    }
     invalidateCache(this.tableName);
     try {
       let queryStr = `DELETE FROM ${this.tableName}`;

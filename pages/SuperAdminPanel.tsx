@@ -278,7 +278,7 @@ export default function SuperAdminPanel() {
         slug: editProfileData.slug,
         address: editProfileData.address,
         whatsapp: editProfileData.whatsapp,
-        logourl: editProfileData.logoUrl,
+        logoUrl: editProfileData.logoUrl,
         settings: JSON.stringify(updatedSettings),
         dbUrl: editProfileData.dbUrl,
         dbAuthToken: editProfileData.dbAuthToken
@@ -322,8 +322,8 @@ export default function SuperAdminPanel() {
       description: productFormData.description,
       price: Number(productFormData.price),
       category: productFormData.category,
-      imageurl: productFormData.imageUrl,
-      isactive: true
+      imageUrl: productFormData.imageUrl,
+      isActive: true
     };
 
     const { error } = await supabase.from('products').insert([productToSave]);
@@ -381,9 +381,9 @@ export default function SuperAdminPanel() {
       slug: slug,
       address: formData.address,
       whatsapp: formData.whatsapp,
-      logourl: formData.logoUrl || INITIAL_SETTINGS.logoUrl,
-      isactive: true,
-      createdat: Date.now(),
+      logoUrl: formData.logoUrl || INITIAL_SETTINGS.logoUrl,
+      isActive: true,
+      createdAt: Date.now(),
       dbUrl: formData.dbUrl ? formData.dbUrl.trim() : '',
       dbAuthToken: formData.dbAuthToken ? formData.dbAuthToken.trim() : '',
       settings: JSON.stringify({ 
@@ -398,7 +398,8 @@ export default function SuperAdminPanel() {
     const { data: storeData, error } = await supabase.from('store_profiles').insert([newStore]);
     
     if (error) {
-        alert("Erro ao criar loja");
+        console.error("Error creating store:", error);
+        alert("Erro ao criar loja: " + (error.message || JSON.stringify(error)));
     } else {
       const createdStore = storeData?.[0];
       
@@ -459,7 +460,7 @@ export default function SuperAdminPanel() {
   };
 
   const toggleStoreStatus = async (id: string, currentStatus: boolean) => {
-    await supabase.from('store_profiles').eq('id', id).update({ isactive: !currentStatus });
+    await supabase.from('store_profiles').eq('id', id).update({ isActive: !currentStatus });
     fetchStores();
   };
 
