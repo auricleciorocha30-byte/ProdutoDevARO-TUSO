@@ -242,18 +242,21 @@ function StoreContext() {
     isSynced: true
   }), []);
 
-  const mapProductFromDb = useCallback((p: any): Product => ({
-    id: p.id.toString(),
-    name: p.name,
-    description: p.description || '',
-    price: Number(p.price),
-    category: p.category,
-    imageUrl: p.imageUrl || p.imageurl || p.image_url || '',
-    isActive: p.isActive ?? p.isactive ?? p.is_active ?? true,
-    featuredDay: p.featuredDay ?? p.featuredday ?? p.featured_day,
-    isByWeight: p.isByWeight ?? p.isbyweight ?? p.is_by_weight ?? false,
-    barcode: p.barcode || undefined
-  }), []);
+  const mapProductFromDb = useCallback((p: any): Product => {
+    const rawFeaturedDay = p.featuredDay ?? p.featuredday ?? p.featured_day;
+    return {
+      id: p.id.toString(),
+      name: p.name,
+      description: p.description || '',
+      price: Number(p.price),
+      category: p.category,
+      imageUrl: p.imageUrl || p.imageurl || p.image_url || '',
+      isActive: p.isActive ?? p.isactive ?? p.is_active ?? true,
+      featuredDay: (rawFeaturedDay !== null && rawFeaturedDay !== undefined && rawFeaturedDay !== '') ? Number(rawFeaturedDay) : undefined,
+      isByWeight: p.isByWeight ?? p.isbyweight ?? p.is_by_weight ?? false,
+      barcode: p.barcode || undefined
+    };
+  }, []);
 
   const syncOrders = useCallback(async () => {
     if (!currentStore) return;

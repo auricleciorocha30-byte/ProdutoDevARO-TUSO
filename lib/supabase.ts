@@ -278,7 +278,24 @@ async function ensureSchema() {
               await client.execute(`ALTER TABLE store_profiles ADD COLUMN dbAuthToken TEXT`);
           }
       } catch (e) {
-          console.warn("Migration check failed (safe to ignore if columns exist):", e);
+          console.warn("Migration check failed for store_profiles (safe to ignore if columns exist):", e);
+      }
+
+      try {
+          const tableInfo = await client.execute(`PRAGMA table_info(products)`);
+          const columns = tableInfo.rows.map((row: any) => row.name);
+          
+          if (!columns.includes('featuredDay')) {
+              await client.execute(`ALTER TABLE products ADD COLUMN featuredDay INTEGER`);
+          }
+          if (!columns.includes('isByWeight')) {
+              await client.execute(`ALTER TABLE products ADD COLUMN isByWeight INTEGER DEFAULT 0`);
+          }
+          if (!columns.includes('barcode')) {
+              await client.execute(`ALTER TABLE products ADD COLUMN barcode TEXT`);
+          }
+      } catch (e) {
+          console.warn("Migration check failed for products (safe to ignore if columns exist):", e);
       }
 
       schemaInitialized = true;
@@ -344,6 +361,24 @@ class TursoBridge {
               
               await this.executeSqlCustom(url, token, statement);
           }
+          
+          try {
+              const tableInfo = await this.executeSqlCustom(url, token, `PRAGMA table_info(products)`);
+              const columns = tableInfo.rows.map((row: any) => row.name);
+              
+              if (!columns.includes('featuredDay')) {
+                  await this.executeSqlCustom(url, token, `ALTER TABLE products ADD COLUMN featuredDay INTEGER`);
+              }
+              if (!columns.includes('isByWeight')) {
+                  await this.executeSqlCustom(url, token, `ALTER TABLE products ADD COLUMN isByWeight INTEGER DEFAULT 0`);
+              }
+              if (!columns.includes('barcode')) {
+                  await this.executeSqlCustom(url, token, `ALTER TABLE products ADD COLUMN barcode TEXT`);
+              }
+          } catch (e) {
+              console.warn("Migration check failed for store DB products (safe to ignore if columns exist):", e);
+          }
+          
           console.log("Schema verificado na loja:", url);
       } catch (err) {
           console.error("Erro ao criar schema na loja:", err);

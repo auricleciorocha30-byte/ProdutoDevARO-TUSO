@@ -63,7 +63,10 @@ const TVBoard: React.FC<Props> = ({ orders, settings, products }) => {
 
   // Efeito para rotacionar as ofertas a cada 6 segundos
   useEffect(() => {
-    if (todayOffers.length <= 1) return;
+    if (todayOffers.length <= 1) {
+      setOfferIndex(0);
+      return;
+    }
 
     const interval = setInterval(() => {
       setOfferIndex((prev) => (prev + 1) % todayOffers.length);
@@ -72,7 +75,7 @@ const TVBoard: React.FC<Props> = ({ orders, settings, products }) => {
     return () => clearInterval(interval);
   }, [todayOffers.length]);
 
-  const todayOffer = todayOffers[offerIndex];
+  const todayOffer = todayOffers[offerIndex] || todayOffers[0];
 
   return (
     <div className="min-h-screen bg-[#3d251e] text-white p-8 overflow-hidden flex flex-col">

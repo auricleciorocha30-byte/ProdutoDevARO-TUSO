@@ -29,7 +29,7 @@ const WeeklyOffers: React.FC<Props> = ({ products, saveProduct }) => {
     // 1. Remove existing offer for this day if any
     const existing = getProductForDay(dayId);
     if (existing) {
-        await saveProduct({ ...existing, featuredDay: undefined });
+        await saveProduct({ ...existing, featuredDay: null as any });
     }
 
     // 2. Set new offer
@@ -45,7 +45,7 @@ const WeeklyOffers: React.FC<Props> = ({ products, saveProduct }) => {
   const removeOffer = async (dayId: number) => {
     const product = getProductForDay(dayId);
     if (product) {
-        await saveProduct({ ...product, featuredDay: undefined });
+        await saveProduct({ ...product, featuredDay: null as any });
     }
   };
 
