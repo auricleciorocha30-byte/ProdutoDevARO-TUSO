@@ -399,7 +399,12 @@ export default function SuperAdminPanel() {
     
     if (error) {
         console.error("Error creating store:", error);
-        alert("Erro ao criar loja: " + (error.message || JSON.stringify(error)));
+        const errMsg = error.message || JSON.stringify(error);
+        if (errMsg.includes('Failed to fetch')) {
+            alert("Erro de conexão: Não foi possível acessar o banco de dados.\n\nVerifique se a URL e o Token do Banco Master estão corretos nas configurações (ícone de engrenagem no topo da página).");
+        } else {
+            alert("Erro ao criar loja: " + errMsg);
+        }
     } else {
       const createdStore = storeData?.[0];
       
@@ -971,6 +976,22 @@ export default function SuperAdminPanel() {
                 </div>
 
                 <div className="pt-8 flex gap-4">
+                  <button type="button" onClick={async () => {
+                    try {
+                      const res = await fetch(masterConfig.url.replace(/^libsql:\/\//, 'https://').replace(/\/$/, ''), {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${masterConfig.token}`,
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ statements: [{ q: 'SELECT 1' }] })
+                      });
+                      if (res.ok) alert('Conexão bem-sucedida!');
+                      else alert(`Erro de conexão: ${res.status} ${res.statusText}`);
+                    } catch (e: any) {
+                      alert(`Erro de conexão: ${e.message}`);
+                    }
+                  }} className="flex-1 py-4 bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 rounded-2xl transition-colors">Testar Conexão</button>
                   <button type="button" onClick={() => setShowMasterConfigModal(false)} className="flex-1 py-4 text-slate-400 font-bold hover:bg-slate-50 rounded-2xl transition-colors">Cancelar</button>
                   <button type="submit" className="flex-[2] py-4 bg-[#001F3F] text-white rounded-2xl font-bold shadow-xl hover:brightness-110 transition-all">
                     Salvar Configuração Master
