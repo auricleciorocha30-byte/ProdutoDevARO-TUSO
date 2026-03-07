@@ -96,6 +96,7 @@ function StoreContext() {
   const syncIntervalRef = useRef<any>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<number>(Date.now());
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -305,13 +306,16 @@ function StoreContext() {
     }
 
     const fetchMetadata = async () => {
-      const cached = localStorage.getItem(`${METADATA_CACHE_KEY}_${currentStore.id}`);
+      console.log("Fetching metadata for store:", currentStore?.id);
+      const cached = localStorage.getItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
       if (cached) {
         const parsed = JSON.parse(cached);
         const p = parsed.products;
         const c = parsed.categories;
         const time = parsed.time;
         
+        console.log("Loaded from cache:", { productsCount: p?.length, categoriesCount: c?.length });
+
         if (!navigator.onLine || (Date.now() - time < 3600000)) { 
           if (p) setProducts(p);
           if (c) setCategories(c);
@@ -321,16 +325,20 @@ function StoreContext() {
 
       if (!navigator.onLine) return;
 
+      console.log("Fetching from Supabase...");
       const [pRes, cRes] = await Promise.all([
-        supabase.from('products').select('*').eq('store_id', currentStore.id),
-        supabase.from('categories').select('*').eq('store_id', currentStore.id)
+        supabase.from('products').select('*').eq('store_id', currentStore?.id),
+        supabase.from('categories').select('*').eq('store_id', currentStore?.id)
       ]);
+      
+      console.log("Supabase results:", { pRes, cRes });
       
       let mappedP: Product[] = [];
       let cats: string[] = [];
 
       if (pRes.error) {
           console.error("Error fetching products:", pRes.error);
+          setFetchError(`Erro ao buscar produtos: ${pRes.error.message}`);
       } else if (pRes.data) {
         mappedP = pRes.data.map(mapProductFromDb);
         setProducts(mappedP);
@@ -338,6 +346,7 @@ function StoreContext() {
 
       if (cRes.error) {
           console.error("Error fetching categories:", cRes.error);
+          setFetchError(`Erro ao buscar categorias: ${cRes.error.message}`);
       } else if (cRes.data) {
         cats = cRes.data.map((c: any) => c.name);
         setCategories(cats);
@@ -352,7 +361,7 @@ function StoreContext() {
         if (pRes.data) cacheData.products = mappedP;
         if (cRes.data) cacheData.categories = cats;
         
-        localStorage.setItem(`${METADATA_CACHE_KEY}_${currentStore.id}`, JSON.stringify(cacheData));
+        localStorage.setItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`, JSON.stringify(cacheData));
       }
     };
 
@@ -457,62 +466,70 @@ function StoreContext() {
   const lojaParam = storeSlug ? `?loja=${storeSlug}` : '';
 
   return (
-    <Routes>
-      <Route path="/atendimento" element={<AttendantPanel adminUser={adminUser} orders={orders} settings={settings} onSelectTable={setActiveTable} updateStatus={updateOrderStatus} onLogout={() => handleSetUser(null)} />} />
-      <Route path="/cozinha" element={<KitchenBoard orders={orders} updateStatus={updateOrderStatus} />} />
-      <Route path="/tv" element={<TVBoard orders={orders} settings={settings} products={products} />} />
-      <Route path="/cardapio" element={<DigitalMenu products={products} categories={categories} settings={settings} orders={orders} addOrder={addOrder} tableNumber={activeTable} onLogout={() => setActiveTable(null)} isWaitstaff={!!adminUser} />} />
-      <Route path="/master" element={<SuperAdminPanel />} />
-      <Route path="/login" element={<LoginPage onLoginSuccess={handleSetUser} />} />
+    <div className="min-h-screen bg-gray-50">
+      {fetchError && (
+        <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
+          {fetchError}
+          <button onClick={() => setFetchError(null)} className="ml-2 font-bold">X</button>
+        </div>
+      )}
+      <Routes>
+        <Route path="/atendimento" element={<AttendantPanel adminUser={adminUser} orders={orders} settings={settings} onSelectTable={setActiveTable} updateStatus={updateOrderStatus} onLogout={() => handleSetUser(null)} />} />
+        <Route path="/cozinha" element={<KitchenBoard orders={orders} updateStatus={updateOrderStatus} />} />
+        <Route path="/tv" element={<TVBoard orders={orders} settings={settings} products={products} />} />
+        <Route path="/cardapio" element={<DigitalMenu products={products} categories={categories} settings={settings} orders={orders} addOrder={addOrder} tableNumber={activeTable} onLogout={() => setActiveTable(null)} isWaitstaff={!!adminUser} />} />
+        <Route path="/master" element={<SuperAdminPanel />} />
+        <Route path="/login" element={<LoginPage onLoginSuccess={handleSetUser} />} />
 
-      <Route path="/" element={
-        !storeSlug ? <SuperAdminPanel /> : (
-          adminUser ? (
-            adminUser.role === 'GERENTE' ? 
-              <AdminLayout settings={settings} onLogout={() => handleSetUser(null)} /> : 
-              <Navigate to={`/atendimento${lojaParam}`} />
-          ) : <Navigate to={`/login${lojaParam}`} />
-        )
-      }>
-        <Route index element={<AdminDashboard orders={orders} products={products} settings={settings} />} />
-        <Route path="cardapio-admin" element={<MenuManagement storeId={currentStore?.id} products={products} saveProduct={async (p) => { 
-          const payload = { ...p, store_id: currentStore?.id };
-          if (!payload.id) delete payload.id;
+        <Route path="/" element={
+          !storeSlug ? <SuperAdminPanel /> : (
+            adminUser ? (
+              adminUser.role === 'GERENTE' ? 
+                <AdminLayout settings={settings} onLogout={() => handleSetUser(null)} /> : 
+                <Navigate to={`/atendimento${lojaParam}`} />
+            ) : <Navigate to={`/login${lojaParam}`} />
+          )
+        }>
+          <Route index element={<AdminDashboard orders={orders} products={products} settings={settings} />} />
+          <Route path="cardapio-admin" element={<MenuManagement storeId={currentStore?.id} products={products} saveProduct={async (p) => { 
+            const payload = { ...p, store_id: currentStore?.id };
+            if (!payload.id) delete payload.id;
 
-          // NeonBridge upsert returns { data: [result], error } directly. No .select() needed.
-          const { data, error } = await supabase.from('products').upsert([payload]);
-          if (error) throw error;
+            // NeonBridge upsert returns { data: [result], error } directly. No .select() needed.
+            const { data, error } = await supabase.from('products').upsert([payload]);
+            if (error) throw error;
 
-          if (data && data.length > 0) {
-            const savedProduct = mapProductFromDb(data[0]);
-            setProducts(prev => {
-              const exists = prev.find(item => item.id === savedProduct.id);
-              if (exists) {
-                return prev.map(item => item.id === savedProduct.id ? savedProduct : item);
-              }
-              return [...prev, savedProduct];
-            });
-          }
+            if (data && data.length > 0) {
+              const savedProduct = mapProductFromDb(data[0]);
+              setProducts(prev => {
+                const exists = prev.find(item => item.id === savedProduct.id);
+                if (exists) {
+                  return prev.map(item => item.id === savedProduct.id ? savedProduct : item);
+                }
+                return [...prev, savedProduct];
+              });
+            }
 
-          localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
-        }} deleteProduct={async (id) => {
-          const { error } = await supabase.from('products').eq('id', id).delete();
-          if (error) throw error;
+            localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
+          }} deleteProduct={async (id) => {
+            const { error } = await supabase.from('products').eq('id', id).delete();
+            if (error) throw error;
 
-          // Update local state immediately
-          setProducts(prev => prev.filter(item => item.id !== id));
+            // Update local state immediately
+            setProducts(prev => prev.filter(item => item.id !== id));
 
-          localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
-        }} categories={categories} setCategories={setCategories} onCategoryChange={() => {
-          localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
-        }} />} />
-        <Route path="pedidos" element={<OrdersList orders={orders} updateStatus={updateOrderStatus} products={products} addOrder={addOrder} settings={settings} />} />
-        <Route path="equipe" element={<WaitstaffManagement currentStore={currentStore!} settings={settings} onUpdateSettings={handleUpdateSettings} />} />
-        <Route path="configuracoes" element={<StoreSettingsPage settings={settings} products={products} onSave={handleUpdateSettings} storeId={currentStore?.id} />} />
-      </Route>
+            localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
+          }} categories={categories} setCategories={setCategories} onCategoryChange={() => {
+            localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
+          }} />} />
+          <Route path="pedidos" element={<OrdersList orders={orders} updateStatus={updateOrderStatus} products={products} addOrder={addOrder} settings={settings} />} />
+          <Route path="equipe" element={<WaitstaffManagement currentStore={currentStore!} settings={settings} onUpdateSettings={handleUpdateSettings} />} />
+          <Route path="configuracoes" element={<StoreSettingsPage settings={settings} products={products} onSave={handleUpdateSettings} storeId={currentStore?.id} />} />
+        </Route>
 
-      <Route path="*" element={<Navigate to={storeSlug ? `/cardapio${lojaParam}` : "/"} />} />
-    </Routes>
+        <Route path="*" element={<Navigate to={storeSlug ? `/cardapio${lojaParam}` : "/"} />} />
+      </Routes>
+    </div>
   );
 }
 
