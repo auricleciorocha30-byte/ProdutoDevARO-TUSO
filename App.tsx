@@ -305,53 +305,65 @@ function StoreContext() {
     }
 
     const fetchMetadata = async () => {
-      console.log("Fetching metadata for store:", currentStore?.id);
+      console.log("DEBUG: fetchMetadata called for store:", currentStore?.id);
       
       let cachedProducts: Product[] = [];
       let cachedCategories: string[] = [];
       
-      const cached = localStorage.getItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
+      const cacheKey = `${METADATA_CACHE_KEY}_${currentStore?.id}`;
+      console.log("DEBUG: Cache key:", cacheKey);
+      
+      const cached = localStorage.getItem(cacheKey);
       if (cached) {
-        const parsed = JSON.parse(cached);
-        cachedProducts = parsed.products || [];
-        cachedCategories = parsed.categories || [];
-        const time = parsed.time;
-        
-        console.log("Loaded from cache:", { productsCount: cachedProducts.length, categoriesCount: cachedCategories.length });
+        try {
+          const parsed = JSON.parse(cached);
+          cachedProducts = parsed.products || [];
+          cachedCategories = parsed.categories || [];
+          const time = parsed.time;
+          
+          console.log("DEBUG: Loaded from cache:", { productsCount: cachedProducts.length, categoriesCount: cachedCategories.length, time });
 
-        if (!navigator.onLine || (Date.now() - time < 3600000)) { 
-          setProducts(cachedProducts);
-          setCategories(cachedCategories);
-          if (!navigator.onLine) return;
+          if (!navigator.onLine || (Date.now() - time < 3600000)) { 
+            console.log("DEBUG: Setting state from cache");
+            setProducts(cachedProducts);
+            setCategories(cachedCategories);
+            if (!navigator.onLine) return;
+          }
+        } catch (e) {
+          console.error("DEBUG: Error parsing cache:", e);
         }
+      } else {
+        console.log("DEBUG: No cache found for key:", cacheKey);
       }
 
       if (!navigator.onLine) return;
 
-      console.log("Fetching from Supabase...");
+      console.log("DEBUG: Fetching from Supabase...");
       const [pRes, cRes] = await Promise.all([
         supabase.from('products').select('*').eq('store_id', currentStore?.id),
         supabase.from('categories').select('*').eq('store_id', currentStore?.id)
       ]);
       
-      console.log("Supabase results:", { pRes, cRes });
+      console.log("DEBUG: Supabase results:", { pRes, cRes });
       
       let newProducts: Product[] = cachedProducts;
       let newCategories: string[] = cachedCategories;
 
       if (pRes.error) {
-          console.error("Error fetching products:", pRes.error);
+          console.error("DEBUG: Error fetching products:", pRes.error);
           setFetchError(`Erro ao buscar produtos: ${pRes.error.message}`);
       } else if (pRes.data) {
         newProducts = pRes.data.map(mapProductFromDb);
+        console.log("DEBUG: Setting products from Supabase:", newProducts.length);
         setProducts(newProducts);
       }
 
       if (cRes.error) {
-          console.error("Error fetching categories:", cRes.error);
+          console.error("DEBUG: Error fetching categories:", cRes.error);
           setFetchError(`Erro ao buscar categorias: ${cRes.error.message}`);
       } else if (cRes.data) {
         newCategories = cRes.data.map((c: any) => c.name);
+        console.log("DEBUG: Setting categories from Supabase:", newCategories.length);
         setCategories(newCategories);
       }
         
@@ -362,7 +374,8 @@ function StoreContext() {
         categories: newCategories
       };
       
-      localStorage.setItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`, JSON.stringify(cacheData));
+      console.log("DEBUG: Saving to cache:", cacheKey, cacheData);
+      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
     };
 
     fetchMetadata();
