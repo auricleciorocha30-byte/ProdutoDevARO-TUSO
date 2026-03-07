@@ -270,8 +270,7 @@ function StoreContext() {
         .from('orders')
         .select('*')
         .eq('store_id', currentStore.id)
-        .order('id', { ascending: false })
-        .limit(30);
+        .order('id', { ascending: false });
 
       if (data) {
         const newOrders = data.map(mapOrderFromDb);
