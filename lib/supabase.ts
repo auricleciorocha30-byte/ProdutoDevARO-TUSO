@@ -399,12 +399,8 @@ class TursoBridge {
       // store_profiles ALWAYS goes to Main DB
       const useStoreDb = TursoBridge.storeDbUrl && TursoBridge.storeDbToken && this.tableName !== 'store_profiles';
       
-      console.log("Executing query on table:", this.tableName, "using store DB:", useStoreDb);
-
       const targetUrl = useStoreDb ? TursoBridge.storeDbUrl! : TURSO_URL;
       const targetToken = useStoreDb ? TursoBridge.storeDbToken! : TURSO_AUTH_TOKEN;
-
-      console.log("Target URL:", targetUrl);
 
       // Ensure schema if connecting to a store DB for the first time
       if (useStoreDb && !TursoBridge.initializedStores.has(targetUrl)) {
