@@ -109,7 +109,7 @@ async function executeSql(sql: string, args: any[] = []) {
 // --- OFFLINE SYNC & CACHE SYSTEM ---
 const CACHE_PREFIX = 'turso_cache_';
 const SYNC_QUEUE_KEY = 'turso_sync_queue';
-const CACHE_TTL = 10000; // 10 seconds cache for reads
+const CACHE_TTL = 300000; // 5 minutes cache for reads
 
 function getCacheKey(tableName: string, queryStr: string, params: any[]) {
     return `${CACHE_PREFIX}${tableName}_${queryStr}_${JSON.stringify(params)}`;
