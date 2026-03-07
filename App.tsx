@@ -332,8 +332,8 @@ function StoreContext() {
       
       console.log("Supabase results:", { pRes, cRes });
       
-      let mappedP: Product[] = [];
-      let cats: string[] = [];
+      let mappedP: Product[] = products;
+      let cats: string[] = categories;
 
       if (pRes.error) {
           console.error("Error fetching products:", pRes.error);
@@ -361,6 +361,8 @@ function StoreContext() {
         if (cRes.data) cacheData.categories = cats;
         
         localStorage.setItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`, JSON.stringify(cacheData));
+      } else {
+        console.log("No new data fetched, keeping existing state.");
       }
     };
 
