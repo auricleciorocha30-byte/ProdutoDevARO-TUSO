@@ -598,6 +598,10 @@ class TursoBridge {
       }
       return { data: results, error: null };
     } catch (err: any) {
+      if (err.message && err.message.includes('UNIQUE constraint failed')) {
+          console.warn(`Turso Insert Error (Unique Constraint): ${err.message}`);
+          return { data: null, error: { message: 'Item já existe', code: '23505' } };
+      }
       console.error("Turso Insert Error:", err);
       return { data: null, error: err };
     }
