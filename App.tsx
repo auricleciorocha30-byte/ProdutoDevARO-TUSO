@@ -307,10 +307,14 @@ function StoreContext() {
     const fetchMetadata = async () => {
       const cached = localStorage.getItem(`${METADATA_CACHE_KEY}_${currentStore.id}`);
       if (cached) {
-        const { products: p, categories: c, time } = JSON.parse(cached);
+        const parsed = JSON.parse(cached);
+        const p = parsed.products;
+        const c = parsed.categories;
+        const time = parsed.time;
+        
         if (!navigator.onLine || (Date.now() - time < 3600000)) { 
-          setProducts(p);
-          setCategories(c);
+          if (p) setProducts(p);
+          if (c) setCategories(c);
           if (!navigator.onLine) return;
         }
       }
@@ -325,22 +329,30 @@ function StoreContext() {
       let mappedP: Product[] = [];
       let cats: string[] = [];
 
-      if (pRes.data) {
+      if (pRes.error) {
+          console.error("Error fetching products:", pRes.error);
+      } else if (pRes.data) {
         mappedP = pRes.data.map(mapProductFromDb);
         setProducts(mappedP);
       }
 
-      if (cRes.data) {
+      if (cRes.error) {
+          console.error("Error fetching categories:", cRes.error);
+      } else if (cRes.data) {
         cats = cRes.data.map((c: any) => c.name);
         setCategories(cats);
       }
         
       if (pRes.data || cRes.data) {
-        localStorage.setItem(`${METADATA_CACHE_KEY}_${currentStore.id}`, JSON.stringify({
-          products: mappedP,
-          categories: cats,
+        const cacheData: any = {
           time: Date.now()
-        }));
+        };
+        
+        // Only update cache if we actually got data
+        if (pRes.data) cacheData.products = mappedP;
+        if (cRes.data) cacheData.categories = cats;
+        
+        localStorage.setItem(`${METADATA_CACHE_KEY}_${currentStore.id}`, JSON.stringify(cacheData));
       }
     };
 
