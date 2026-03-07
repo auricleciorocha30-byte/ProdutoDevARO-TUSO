@@ -359,21 +359,21 @@ class TursoBridge {
               // Skip store_profiles for store DBs as it lives in Main DB
               if (statement.includes('CREATE TABLE IF NOT EXISTS store_profiles')) continue;
               
-              await this.executeSqlCustom(url, token, statement);
+              await executeSqlCustom(url, token, statement);
           }
           
           try {
-              const tableInfo = await this.executeSqlCustom(url, token, `PRAGMA table_info(products)`);
+              const tableInfo = await executeSqlCustom(url, token, `PRAGMA table_info(products)`);
               const columns = tableInfo.rows.map((row: any) => row.name);
               
               if (!columns.includes('featuredDay')) {
-                  await this.executeSqlCustom(url, token, `ALTER TABLE products ADD COLUMN featuredDay INTEGER`);
+                  await executeSqlCustom(url, token, `ALTER TABLE products ADD COLUMN featuredDay INTEGER`);
               }
               if (!columns.includes('isByWeight')) {
-                  await this.executeSqlCustom(url, token, `ALTER TABLE products ADD COLUMN isByWeight INTEGER DEFAULT 0`);
+                  await executeSqlCustom(url, token, `ALTER TABLE products ADD COLUMN isByWeight INTEGER DEFAULT 0`);
               }
               if (!columns.includes('barcode')) {
-                  await this.executeSqlCustom(url, token, `ALTER TABLE products ADD COLUMN barcode TEXT`);
+                  await executeSqlCustom(url, token, `ALTER TABLE products ADD COLUMN barcode TEXT`);
               }
           } catch (e) {
               console.warn("Migration check failed for store DB products (safe to ignore if columns exist):", e);
